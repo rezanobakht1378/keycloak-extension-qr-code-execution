@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+        http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.2.xsd">
+
+    <changeSet id="qr-vr-001" author="cognick">
+
+        <createTable tableName="AO_HADLEYSO_QR_VR_TRANSACTION">
+
+            <column
+                    name="TRANSACTION_ID"
+                    type="VARCHAR(64)">
+                <constraints
+                        primaryKey="true"
+                        nullable="false"/>
+            </column>
+
+            <column
+                    name="REALM_ID"
+                    type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column
+                    name="USER_ID"
+                    type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column
+                    name="CLIENT_ID"
+                    type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column
+                    name="TOKEN_HASH"
+                    type="VARCHAR(64)">
+                <constraints
+                        nullable="false"
+                        unique="true"/>
+            </column>
+
+            <column
+                    name="CREATED_AT"
+                    type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+
+            <column
+                    name="EXPIRES_AT"
+                    type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+
+            <column
+                    name="USED"
+                    type="BOOLEAN"
+                    defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+
+        </createTable>
+
+        <createIndex
+                indexName="IDX_QR_VR_USER_ID"
+                tableName="AO_HADLEYSO_QR_VR_TRANSACTION">
+
+            <column name="USER_ID"/>
+
+        </createIndex>
+
+        <createIndex
+                indexName="IDX_QR_VR_EXPIRES_AT"
+                tableName="AO_HADLEYSO_QR_VR_TRANSACTION">
+
+            <column name="EXPIRES_AT"/>
+
+        </createIndex>
+
+    </changeSet>
+
+</databaseChangeLog>
