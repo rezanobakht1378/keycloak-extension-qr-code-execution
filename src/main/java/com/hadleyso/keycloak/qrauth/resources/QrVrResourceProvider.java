@@ -24,6 +24,7 @@ import org.keycloak.services.resource.RealmResourceProvider;
 import com.hadleyso.keycloak.qrauth.jpa.QrVrTransactionEntity;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -32,6 +33,13 @@ import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Date;
 import java.util.UUID;
+
+import org.keycloak.events.EventBuilder;
+import org.keycloak.protocol.oidc.TokenManager;
+import org.keycloak.representations.AccessTokenResponse;
+import org.keycloak.services.util.DefaultClientSessionContext;
+import org.keycloak.models.AuthenticatedClientSessionModel;
+import org.keycloak.models.UserSessionModel;
 
 public class QrVrResourceProvider
         implements RealmResourceProvider {
@@ -287,7 +295,9 @@ public class QrVrResourceProvider
                         )
                         .setParameter("tokenHash", tokenHash)
                         .setParameter("realmId", realm.getId())
-                        .getResultStream()
+                        .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                        .getResultList()
+                        .stream()
                         .findFirst()
                         .orElse(null);
 
@@ -315,13 +325,88 @@ public class QrVrResourceProvider
             );
         }
 
-        return Response
-                .ok(
-                        new ScanQrResponse(
-                                transaction.getTransactionId(),
-                                transaction.getExpiresAt()
-                        )
+        UserModel user =
+                session
+                        .users()
+                        .getUserById(
+                                realm,
+                                transaction.getUserId()
+                        );
+
+        ClientModel vrClient =
+                realm.getClientByClientId(
+                        transaction.getClientId()
+                );
+
+        if (user == null || vrClient == null) {
+            return error(
+                    Response.Status.NOT_FOUND,
+                    "QR_CODE_TARGET_NOT_FOUND",
+                    "The QR code target is no longer available."
+            );
+        }
+
+        session
+                .getContext()
+                .setClient(vrClient);
+
+        UserSessionModel userSession =
+                session
+                        .sessions()
+                        .createUserSession(
+                                realm,
+                                user,
+                                "qr-vr",
+                                null,
+                                null,
+                                false,
+                                null,
+                                null
+                        );
+
+        AuthenticatedClientSessionModel clientSession =
+                session
+                        .sessions()
+                        .createClientSession(
+                                realm,
+                                vrClient,
+                                userSession
+                        );
+
+        DefaultClientSessionContext clientSessionContext =
+                DefaultClientSessionContext
+                        .fromClientSessionScopeParameter(
+                                clientSession,
+                                session
+                        );
+
+        EventBuilder event =
+                new EventBuilder(
+                        realm,
+                        session
                 )
+                        .client(vrClient)
+                        .user(user)
+                        .session(userSession);
+
+        AccessTokenResponse tokenResponse =
+                new TokenManager()
+                        .responseBuilder(
+                                realm,
+                                vrClient,
+                                event,
+                                session,
+                                userSession,
+                                clientSessionContext
+                        )
+                        .generateAccessToken()
+                        .generateRefreshToken()
+                        .build();
+
+        transaction.setUsed(true);
+
+        return Response
+                .ok(tokenResponse)
                 .build();
     }
 
